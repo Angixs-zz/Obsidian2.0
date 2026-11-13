@@ -2090,6 +2090,7 @@
           <button type="button" data-graph="spin" aria-pressed="false" disabled title="Girar la vista 3D automáticamente (O)">Órbita</button>
           <button type="button" data-graph="atmosphere" aria-pressed="true" title="Activar o desactivar estrellas y destellos">Estrellas</button>
           <button type="button" data-graph="reset" title="Reencuadrar el grafo (0)">Centrar</button>
+          <button type="button" data-graph="fullscreen" aria-label="Pantalla completa del grafo" aria-pressed="false" title="Pantalla completa del grafo (F)">⛶ Pantalla completa</button>
           <button type="button" data-graph="random">Nota al azar</button>
         </div>
       </div>
@@ -2109,6 +2110,9 @@
     </div>`;
 
     const canvas = $("#graphCanvas");
+    const graphRoot = $(".graph-view", view);
+    const graphTip = $("#graphTip");
+    const tipParent = graphTip?.parentElement;
     const wrap = canvas.parentElement;
     const ctx = canvas.getContext("2d");
     const nodes = graphNodes;
@@ -2121,6 +2125,7 @@
     const viewButton = $('[data-graph="view"]');
     const spinButton = $('[data-graph="spin"]');
     const atmosphereButton = $('[data-graph="atmosphere"]');
+    const fullscreenButton = $('[data-graph="fullscreen"]');
     const graphSearch = $("#graphSearch");
     const modeLabel = $("[data-graph-mode]");
     const hintLabel = $("[data-graph-hint]");
@@ -2154,6 +2159,7 @@
     let atmosphere = true;
     let visible = !document.hidden;
     let lastDecorFrame = 0;
+    let beforeFullscreen = null;
     const stars = Array.from({ length: 82 }, (_, index) => ({
       x: (Math.sin(index * 127.1 + 2) * 43758.5453) % 1,
       y: (Math.sin(index * 83.3 + 4) * 23567.117) % 1,
@@ -2611,6 +2617,43 @@
       draw();
     };
 
+    const syncFullscreen = () => {
+      const active = document.fullscreenElement === graphRoot;
+      if (graphTip && tipParent) {
+        if (active) graphRoot.appendChild(graphTip);
+        else tipParent.appendChild(graphTip);
+      }
+      fullscreenButton.setAttribute("aria-pressed", String(active));
+      fullscreenButton.setAttribute("aria-label", active ? "Salir de pantalla completa" : "Pantalla completa del grafo");
+      fullscreenButton.textContent = active ? "⛶ Salir" : "⛶ Pantalla completa";
+      requestAnimationFrame(() => {
+        if (destroyed || !canvas.isConnected) return;
+        resize();
+        if (active) fitView();
+        else if (beforeFullscreen) {
+          Object.assign(transform, beforeFullscreen);
+          beforeFullscreen = null;
+        }
+        draw();
+      });
+    };
+
+    const toggleFullscreen = async () => {
+      try {
+        if (document.fullscreenElement === graphRoot) {
+          await document.exitFullscreen();
+        } else if (!document.fullscreenElement && graphRoot.requestFullscreen) {
+          beforeFullscreen = { ...transform };
+          await graphRoot.requestFullscreen();
+        } else {
+          toast("La pantalla completa no está disponible en este navegador.", "warn");
+        }
+      } catch {
+        beforeFullscreen = null;
+        toast("El navegador no permitió abrir la pantalla completa.", "warn");
+      }
+    };
+
     const tick = (now) => {
       if (!canvas.isConnected || destroyed) return;
       if (!lastFrame) lastFrame = now;
@@ -2903,6 +2946,8 @@
       const key = event.key;
       if (key === "v" || key === "V") {
         setMode();
+      } else if (key === "f" || key === "F") {
+        toggleFullscreen();
       } else if ((key === "o" || key === "O") && viewMode === "3d") {
         toggleSpin();
       } else if (key === "0") {
@@ -2968,6 +3013,18 @@
 
     const onResize = () => { resize(); draw(); };
     add(window, "resize", onResize);
+    add(document, "fullscreenchange", syncFullscreen);
+    add(document, "keydown", (event) => {
+      if (event.key === "Escape" && document.fullscreenElement === graphRoot) {
+        event.preventDefault();
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
+    if (resizeObserver) {
+      resizeObserver.observe(wrap);
+      cleanups.push(() => resizeObserver.disconnect());
+    }
     add(document, "visibilitychange", () => {
       visible = !document.hidden;
       lastFrame = 0;
@@ -2981,6 +3038,7 @@
         else if (action === "random") openRandomNote();
         else if (action === "view") setMode();
         else if (action === "spin") toggleSpin();
+        else if (action === "fullscreen") toggleFullscreen();
         else if (action === "atmosphere") {
           atmosphere = !atmosphere;
           atmosphereButton.setAttribute("aria-pressed", String(atmosphere));
@@ -3002,6 +3060,8 @@
 
     const cleanup = () => {
       destroyed = true;
+      if (document.fullscreenElement === graphRoot) document.exitFullscreen().catch(() => {});
+      if (graphTip && tipParent) tipParent.appendChild(graphTip);
       cancelAnimationFrame(raf);
       for (const remove of cleanups) remove();
       hideTip();

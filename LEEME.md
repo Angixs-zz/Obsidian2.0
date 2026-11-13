@@ -75,6 +75,8 @@ La última carpeta se recuerda en este navegador. Si el permiso caduca, pulsa
   estrellas y destellos sutiles. Puedes resaltar una carpeta en la leyenda, buscar una
   nota y pulsar Enter para abrirla, o apagar el ambiente con **Estrellas**. Las
   animaciones se detienen al ocultar la pestaña y respetan movimiento reducido.
+  El botón **Pantalla completa** amplía el grafo con los controles y la búsqueda;
+  vuelve al tamaño normal con el mismo botón o con `Esc`.
 - **Etiquetas**, **favoritos** y **recientes**, guardados solo en este navegador.
 - **Editor** con vista previa y guardado directo en disco; creación de notas nuevas.
 - **Detección de cambios externos**: avisa si la nota cambió en Obsidian antes de guardar.
@@ -101,6 +103,7 @@ La última carpeta se recuerda en este navegador. Si el permiso caduca, pulsa
 | `0` (en el grafo) | Reencuadrar |
 | `+` `-` (en el grafo) | Acercar o alejar |
 | Flechas (en el grafo) | Desplazar en 2D u orbitar en 3D |
+| `F` (en el grafo) | Activar o salir de pantalla completa |
 
 En el menú `⋯` de cada nota tienes **Copiar enlace**, **Abrir en Obsidian**,
 **Ver ruta** e **Imprimir / PDF**.

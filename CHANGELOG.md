@@ -14,6 +14,8 @@
 9. Buscador local de nodos: centra el resultado y Enter abre la nota.
 10. Botón «Estrellas» para apagar/encender los efectos ambientales; la animación
     se pausa con la pestaña oculta y se limita a 20 fps en bóvedas pequeñas.
+- Botón **Pantalla completa** en el grafo 2D/3D: amplía el lienzo sin perder
+  controles, leyenda ni búsqueda. Se sale con el botón o con `Esc`.
 
 ## 2.1.0 — 2026-11-13
 

@@ -710,6 +710,27 @@ body.sidebar-open .scrim, body.inspector-open .scrim { opacity: 1; pointer-event
 /* --------------------------------- grafo --------------------------------- */
 
 .graph-view { max-width: none; margin: 0; height: 100%; display: flex; flex-direction: column; }
+.graph-view:fullscreen {
+  --text: #f5f3ff;
+  --muted: #c4cee4;
+  --panel: #1b2440;
+  --panel-solid: #151b32;
+  --line: rgba(221, 230, 255, .22);
+  --line-strong: rgba(221, 230, 255, .38);
+  --accent: #c3afff;
+  --accent-soft: rgba(195, 175, 255, .19);
+  color-scheme: dark;
+  color: var(--text);
+  background: #080d1b;
+  width: 100vw;
+  height: 100dvh;
+  padding: clamp(10px, 2vw, 24px);
+  overflow: hidden;
+}
+.graph-view:fullscreen .graph-head { align-items: center; }
+.graph-view:fullscreen .graph-head p { max-width: 70ch; }
+.graph-view:fullscreen .graph-canvas-wrap { min-height: 0; }
+.graph-view:fullscreen .graph-search-label input { color-scheme: dark; }
 .graph-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .graph-head > div:first-child { min-width: 0; }
 .graph-head h1 { font-family: var(--serif); font-size: clamp(26px, 3vw, 32px); letter-spacing: -.03em; margin: 0; }
@@ -825,6 +846,11 @@ body.sidebar-open .scrim, body.inspector-open .scrim { opacity: 1; pointer-event
   .graph-actions { justify-content: flex-start; }
   .graph-canvas-wrap { min-height: 52vh; }
   .graph-hud { left: 8px; bottom: 8px; }
+  .graph-view:fullscreen .graph-head { align-items: stretch; }
+  .graph-view:fullscreen .graph-head p { display: none; }
+  .graph-view:fullscreen .graph-toolbar { flex-wrap: nowrap; }
+  .graph-view:fullscreen .graph-search-label { flex: 0 0 min(36vw, 180px); }
+  .graph-view:fullscreen .graph-legend { flex: 1; min-width: 0; }
 }
 @media (max-width: 520px) {
   .stat-grid { gap: 7px; }
