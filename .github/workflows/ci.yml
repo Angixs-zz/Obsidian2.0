@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Comprobar sintaxis
+        run: |
+          node --check core.js
+          node --check theme.js
+          node --check app.js
+          node --check sw.js
+          python3 -m py_compile servidor.py
+      - name: Pruebas del núcleo
+        run: node --test tests/*.test.js
+      - name: Salud del servidor
+        run: |
+          python3 servidor.py --port 8765 &
+          server=$!
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/health | grep -q obsidian-web; then break; fi
+            sleep 0.25
+          done
+          curl -fsS http://127.0.0.1:8765/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/demo/)" = "404"
+          kill $server

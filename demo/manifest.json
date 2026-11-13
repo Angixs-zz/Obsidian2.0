@@ -1,0 +1,9 @@
+{
+  "vault": "Demostración",
+  "files": [
+    { "path": "Inicio.md" },
+    { "path": "Proyectos/App de librería.md" },
+    { "path": "Lectura/El cuento de la Criada.md" },
+    { "path": "Escritos/Privilegio.md" }
+  ]
+}

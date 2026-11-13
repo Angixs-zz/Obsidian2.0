@@ -1,0 +1,15 @@
+{
+  "name": "obsidian-web",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Lector y editor local de una bóveda de Obsidian, sin servidores remotos.",
+  "license": "MIT",
+  "scripts": {
+    "start": "python3 servidor.py",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check core.js && node --check theme.js && node --check app.js && node --check sw.js && python3 -m py_compile servidor.py"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
