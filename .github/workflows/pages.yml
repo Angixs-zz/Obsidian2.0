@@ -1,0 +1,42 @@
+name: Publicar Pages
+
+on:
+  push:
+    branches: [feat/universo-grafo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar sintaxis y pruebas antes de publicar
+        run: |
+          node --check app.js
+          node --check core.js
+          node --check sw.js
+          node --test tests/*.test.js
+      - name: Empaquetar solo archivos públicos de la app
+        run: |
+          mkdir -p _site
+          cp index.html app.js core.js theme.js styles.css sw.js manifest.webmanifest favicon.svg _site/
+          cp -R icons vendor demo _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

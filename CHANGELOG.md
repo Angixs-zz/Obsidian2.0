@@ -1,5 +1,12 @@
 # Changelog
 
+## Publicación web
+
+- GitHub Pages publica únicamente la app y la demo desde `feat/universo-grafo`;
+  no incluye el servidor, los tests ni archivos privados del equipo.
+- Las rutas relativas mantienen funcionales demo, PWA, iconos y grafo bajo
+  `/Obsidian2.0/`. La bóveda sigue accediéndose con permiso local del navegador.
+
 ## 2.2.0 — 2026-11-13
 
 ### Universo de notas (rama `feat/universo-grafo`)

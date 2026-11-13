@@ -47,6 +47,17 @@ python3 servidor.py
 
 Abre `http://127.0.0.1:8765/`. El servidor solo acepta conexiones locales.
 
+### GitHub Pages (opcional)
+
+La interfaz también se publica desde la rama `feat/universo-grafo` en
+<https://angixs-zz.github.io/Obsidian2.0/>. En Chrome, Edge o Brave puedes abrir
+allí una carpeta local: **las notas no se suben a GitHub**. Solo se alojan los
+archivos de la aplicación y la demostración que ya está en el repositorio.
+La página necesita conexión para cargarse por primera vez y el navegador vuelve
+a pedir permiso para la carpeta: `github.io` y `127.0.0.1` son sitios distintos,
+con permisos y cachés independientes. La versión local sigue siendo la opción más
+privada si no quieres descargar la interfaz de GitHub.
+
 ## Primeros pasos
 
 1. Pulsa **Abrir carpeta** y elige la carpeta de tu bóveda, por ejemplo
