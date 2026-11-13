@@ -2,6 +2,8 @@
 
 Aplicación local para explorar y editar una bóveda de Obsidian desde el navegador. No necesita cuenta, servicios remotos ni CDN; los archivos permanecen en tu equipo.
 
+El **Universo de notas** ofrece grafo 2D/3D, constelaciones por carpeta y efectos espaciales opcionales.
+
 ## Ejecutar
 
 Necesitas Python 3.10+ y, para editar directamente, un navegador Chromium reciente.

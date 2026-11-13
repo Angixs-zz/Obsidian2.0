@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 — 2026-11-13
+
+### Universo de notas (rama `feat/universo-grafo`)
+1. Colores de constelación estables por carpeta principal.
+2. Agrupación física suave de las notas de la misma carpeta.
+3. Nebulosas tenues detrás de las constelaciones (limitadas para bóvedas grandes).
+4. Cielo de estrellas determinista, sin recursos externos.
+5. Estrella fugaz ocasional, desactivada con movimiento reducido.
+6. Halo luminoso sutil alrededor de los planetas enlazados.
+7. Resaltado de vecinos y conexiones al enfocar un planeta.
+8. Leyenda interactiva con recuentos para destacar una carpeta.
+9. Buscador local de nodos: centra el resultado y Enter abre la nota.
+10. Botón «Estrellas» para apagar/encender los efectos ambientales; la animación
+    se pausa con la pestaña oculta y se limita a 20 fps en bóvedas pequeñas.
+
 ## 2.1.0 — 2026-11-13
 
 ### Grafo interactivo

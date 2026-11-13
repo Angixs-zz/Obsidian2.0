@@ -18,7 +18,7 @@ from urllib.parse import unquote, urlsplit
 
 BASE = Path(__file__).resolve().parent
 APP_NAME = "obsidian-web"
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.2.0"
 MAX_PORT = 65535
 
 # Solo estos archivos de la raíz y estas carpetas son públicos.

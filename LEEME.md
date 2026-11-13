@@ -71,6 +71,10 @@ La última carpeta se recuerda en este navegador. Si el permiso caduca, pulsa
   física suave, gira la cámara en 3D, usa rueda o pinza para acercar y haz clic para abrir.
   Cada punto muestra el nombre de su archivo en una etiqueta legible (con fondo y texto
   de alto contraste) desde poco zoom; se oculta al alejarse demasiado.
+  El modo **Universo de notas** agrupa los planetas por carpeta con colores, nebulosas,
+  estrellas y destellos sutiles. Puedes resaltar una carpeta en la leyenda, buscar una
+  nota y pulsar Enter para abrirla, o apagar el ambiente con **Estrellas**. Las
+  animaciones se detienen al ocultar la pestaña y respetan movimiento reducido.
 - **Etiquetas**, **favoritos** y **recientes**, guardados solo en este navegador.
 - **Editor** con vista previa y guardado directo en disco; creación de notas nuevas.
 - **Detección de cambios externos**: avisa si la nota cambió en Obsidian antes de guardar.
@@ -120,7 +124,7 @@ Comprobación de salud:
 
 ```bash
 curl http://127.0.0.1:8765/health
-# {"app": "obsidian-web", "version": "2.1.0", "status": "ok"}
+# {"app": "obsidian-web", "version": "2.2.0", "status": "ok"}
 ```
 
 El servidor sirve **solo** los archivos de esta carpeta mediante una lista blanca.

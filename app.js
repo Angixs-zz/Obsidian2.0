@@ -2028,15 +2028,25 @@
 
   function graphData() {
     const nameCounts = new Map();
+    const folders = new Map();
     for (const note of state.notes.values()) {
       const name = stem(basename(note.path)) || note.title;
       nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+      const folder = note.path.includes("/") ? note.path.split("/")[0] : "Raíz";
+      folders.set(folder, (folders.get(folder) || 0) + 1);
     }
+    const folderNames = Array.from(folders.keys()).sort((a, b) => a.localeCompare(b, "es"));
+    const palette = ["#bfa9ff", "#70dddb", "#ffbd87", "#ff91b5", "#a9d68a", "#88b9ff", "#f1d67a", "#dd9df0"];
+    const groups = folderNames.map((name, index) => ({
+      name, count: folders.get(name), color: palette[index % palette.length], index
+    }));
+    const byFolder = new Map(groups.map((group) => [group.name, group]));
     const nodes = Array.from(state.notes.values()).map((note) => {
       const name = stem(basename(note.path)) || note.title;
       return {
         id: note.path,
         label: nameCounts.get(name) > 1 ? `${name} · ${basename(dirname(note.path)) || "Raíz"}` : name,
+        group: byFolder.get(note.path.includes("/") ? note.path.split("/")[0] : "Raíz"),
         degree: 0,
         x: 0,
         y: 0,
@@ -2065,28 +2075,35 @@
         edges.push({ source, target });
       }
     }
-    return { nodes, edges };
+    return { nodes, edges, groups };
   }
 
   function renderGraph() {
     const view = $("#view");
     if (!state.notes.size) return setView({ name: "home" }, { history: false });
-    const { nodes: graphNodes, edges: graphEdges } = graphData();
+    const { nodes: graphNodes, edges: graphEdges, groups } = graphData();
     view.innerHTML = `<div class="graph-view">
       <div class="graph-head">
-        <div><h1>Grafo de la biblioteca</h1><p>${fmtNumber(graphNodes.length)} notas · ${fmtNumber(graphEdges.length)} conexiones únicas. Arrastra un nodo para moverlo y ver cómo lo siguen sus vecinos. Acerca la cámara para leer los nombres; en 3D, arrastra el fondo para girar.</p></div>
+        <div><h1>Universo de notas</h1><p>${fmtNumber(graphNodes.length)} notas · ${fmtNumber(graphEdges.length)} conexiones · ${fmtNumber(groups.length)} constelaciones. Arrastra planetas; acerca para ver nombres. En 3D, arrastra el fondo para girar.</p></div>
         <div class="graph-actions" role="group" aria-label="Controles del grafo">
           <button type="button" data-graph="view" aria-label="Cambiar a vista 3D" title="Alternar entre vista 2D y 3D (V)">Vista 3D</button>
           <button type="button" data-graph="spin" aria-pressed="false" disabled title="Girar la vista 3D automáticamente (O)">Órbita</button>
+          <button type="button" data-graph="atmosphere" aria-pressed="true" title="Activar o desactivar estrellas y destellos">Estrellas</button>
           <button type="button" data-graph="reset" title="Reencuadrar el grafo (0)">Centrar</button>
           <button type="button" data-graph="random">Nota al azar</button>
+        </div>
+      </div>
+      <div class="graph-toolbar">
+        <label class="graph-search-label"><span class="visually-hidden">Encontrar nota en el grafo</span><input id="graphSearch" type="search" autocomplete="off" placeholder="Encontrar nota…" aria-label="Encontrar nota en el grafo"></label>
+        <div class="graph-legend" role="group" aria-label="Resaltar carpeta">
+          ${groups.map((group) => `<button type="button" class="graph-legend-item" data-graph-folder="${escapeHtml(group.name)}" aria-pressed="false"><span class="graph-legend-dot" style="--folder-color:${group.color}"></span>${escapeHtml(group.name)} <small>${group.count}</small></button>`).join("")}
         </div>
       </div>
       <div class="graph-canvas-wrap">
         <canvas id="graphCanvas" tabindex="0" aria-label="Grafo interactivo en 2D. Arrastra un nodo para moverlo y ver cómo lo siguen sus conexiones. Usa las flechas para desplazarte, más y menos para acercar, y V para cambiar a la vista 3D.">Grafo interactivo de conexiones entre notas.</canvas>
         <div class="graph-hud" aria-hidden="true">
           <span class="graph-mode" data-graph-mode>2D</span>
-          <span data-graph-hint>Arrastra un nodo · rueda para acercar</span>
+          <span data-graph-hint>Arrastra un planeta · rueda para acercar</span>
         </div>
       </div>
     </div>`;
@@ -2096,8 +2113,15 @@
     const ctx = canvas.getContext("2d");
     const nodes = graphNodes;
     const edges = graphEdges;
+    const connected = new Map(nodes.map((node) => [node.id, new Set()]));
+    for (const edge of edges) {
+      connected.get(edge.source.id).add(edge.target.id);
+      connected.get(edge.target.id).add(edge.source.id);
+    }
     const viewButton = $('[data-graph="view"]');
     const spinButton = $('[data-graph="spin"]');
+    const atmosphereButton = $('[data-graph="atmosphere"]');
+    const graphSearch = $("#graphSearch");
     const modeLabel = $("[data-graph-mode]");
     const hintLabel = $("[data-graph-hint]");
     const transform = { k: 1, x: 0, y: 0 };
@@ -2125,6 +2149,17 @@
     let lastFrame = 0;
     let accumulator = 0;
     let lastLabelCount = 0;
+    let selectedGroup = null;
+    let selectedNode = null;
+    let atmosphere = true;
+    let visible = !document.hidden;
+    let lastDecorFrame = 0;
+    const stars = Array.from({ length: 82 }, (_, index) => ({
+      x: (Math.sin(index * 127.1 + 2) * 43758.5453) % 1,
+      y: (Math.sin(index * 83.3 + 4) * 23567.117) % 1,
+      size: index % 13 === 0 ? 1.6 : 0.6 + (index % 3) * 0.24,
+      phase: index * 3.77
+    })).map((star) => ({ ...star, x: Math.abs(star.x), y: Math.abs(star.y) }));
 
     const STEP = 1000 / 60;
     const reduce = reduceMotion();
@@ -2262,8 +2297,10 @@
           node.vx = 0; node.vy = 0; node.vz = 0;
           continue;
         }
-        node.vx += -node.x * 0.0009 * alpha;
-        node.vy += -node.y * 0.0009 * alpha;
+        const angle = (node.group.index / Math.max(1, groups.length)) * Math.PI * 2 - Math.PI / 2;
+        const orbit = groups.length < 2 ? 0 : Math.min(width, height) * 0.32;
+        node.vx += (Math.cos(angle) * orbit - node.x) * 0.0012 * alpha;
+        node.vy += (Math.sin(angle) * orbit - node.y) * 0.0012 * alpha;
         if (is3d) node.vz += -node.z * 0.0003 * alpha;
         node.vx *= damping;
         node.vy *= damping;
@@ -2296,15 +2333,66 @@
     const draw = () => {
       if (!canvas.isConnected) return;
       ctx.clearRect(0, 0, width, height);
-      const style = getComputedStyle(document.documentElement);
-      const accent = style.getPropertyValue("--accent").trim() || "#b89cff";
-      const teal = style.getPropertyValue("--accent-2").trim() || "#7ee0c3";
-      const line = style.getPropertyValue("--line-strong").trim() || "rgba(255,255,255,.16)";
-      const text = style.getPropertyValue("--text").trim() || "#e8eaf2";
-      const panelSolid = style.getPropertyValue("--panel-solid").trim() || "#151924";
+      // El lienzo es nocturno en ambos temas; el texto conserva contraste estable.
+      const text = "#f5f3ff";
+      const panelSolid = "#151b32";
       const is3d = viewMode === "3d";
       const items = layout();
       const byId = new Map(items.map((item) => [item.node.id, item]));
+      const groupCenters = new Map();
+      for (const item of items) {
+        const center = groupCenters.get(item.node.group) || { x: 0, y: 0, count: 0 };
+        center.x += item.x;
+        center.y += item.y;
+        center.count += 1;
+        groupCenters.set(item.node.group, center);
+      }
+      const focusNode = hover || selectedNode;
+      const neighbors = focusNode && connected.get(focusNode.id);
+      const isRelevant = (node) => focusNode
+        ? node === focusNode || neighbors.has(node.id)
+        : !selectedGroup || node.group === selectedGroup;
+
+      if (atmosphere) {
+        const time = performance.now();
+        // Una sola capa fija al lienzo: ni notas ni datos salen del navegador.
+        for (const star of stars) {
+          const glow = reduce ? 0.48 : 0.42 + Math.sin(time * 0.00075 + star.phase) * 0.16;
+          ctx.fillStyle = `rgba(214,226,255,${glow})`;
+          ctx.beginPath();
+          ctx.arc(star.x * width, star.y * height, star.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        for (const group of groups.slice().sort((a, b) => b.count - a.count).slice(0, 20)) {
+          const center = groupCenters.get(group);
+          if (!center) continue;
+          const x = center.x / center.count;
+          const y = center.y / center.count;
+          const size = Math.min(175, 75 + Math.sqrt(center.count) * 19);
+          const haze = ctx.createRadialGradient(x, y, 0, x, y, size);
+          haze.addColorStop(0, group.color + "25");
+          haze.addColorStop(1, group.color + "00");
+          ctx.fillStyle = haze;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Destello fugaz muy ocasional; no requiere sprites ni temporizadores extra.
+        if (!reduce && visible) {
+          const period = 12500;
+          const progress = (time % period) / period;
+          if (progress < 0.052) {
+            const x = (0.08 + progress * 7) * width;
+            const y = (0.12 + progress * 4) * height;
+            const trail = ctx.createLinearGradient(x - 54, y - 30, x, y);
+            trail.addColorStop(0, "rgba(170,210,255,0)");
+            trail.addColorStop(1, `rgba(208,232,255,${Math.sin(progress / 0.052 * Math.PI) * 0.62})`);
+            ctx.strokeStyle = trail;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(x - 54, y - 30); ctx.lineTo(x, y); ctx.stroke();
+          }
+        }
+      }
 
       let minPersp = Infinity;
       let maxPersp = -Infinity;
@@ -2319,12 +2407,13 @@
         const a = byId.get(edge.source.id);
         const b = byId.get(edge.target.id);
         if (!a || !b) continue;
-        const active = hover && (edge.source === hover || edge.target === hover);
+        const active = focusNode && (edge.source === focusNode || edge.target === focusNode);
+        const inGroup = !selectedGroup || (edge.source.group === selectedGroup && edge.target.group === selectedGroup);
         const baseAlpha = is3d
           ? 0.1 + 0.42 * ((depthMix(a.persp) + depthMix(b.persp)) / 2)
           : 0.4;
-        ctx.globalAlpha = active ? 0.9 : (hover ? baseAlpha * 0.55 : baseAlpha);
-        ctx.strokeStyle = active ? accent : line;
+        ctx.globalAlpha = active ? 0.92 : ((focusNode || selectedGroup) && !inGroup ? baseAlpha * 0.15 : (focusNode ? baseAlpha * 0.32 : baseAlpha));
+        ctx.strokeStyle = active ? focusNode.group.color : "#798ab6";
         ctx.lineWidth = active
           ? Math.max(1.2, 1.8 * transform.k)
           : Math.max(0.5, transform.k * (is3d ? 0.7 + depthMix((a.persp + b.persp) / 2) * 0.6 : 1));
@@ -2337,13 +2426,22 @@
       const ordered = is3d ? items.slice().sort((a, b) => b.depth - a.depth) : items;
       for (const item of ordered) {
         const node = item.node;
-        const isHover = hover === node;
+        const isHover = focusNode === node;
         const r = nodeRadius(node, item, isHover);
         const fade = is3d ? 0.55 + 0.45 * depthMix(item.persp) : 1;
-        ctx.globalAlpha = (hover && !isHover ? 0.38 : 0.95) * fade;
+        ctx.globalAlpha = (isRelevant(node) ? 0.97 : 0.2) * fade;
+        if (atmosphere && (node.degree || isHover)) {
+          ctx.save();
+          ctx.globalAlpha *= 0.35;
+          ctx.shadowColor = node.group.color;
+          ctx.shadowBlur = Math.min(26, 8 + r * 1.4);
+          ctx.fillStyle = node.group.color;
+          ctx.beginPath(); ctx.arc(item.x, item.y, r + 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
         ctx.beginPath();
         ctx.arc(item.x, item.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = node.degree === 0 ? line : (node.degree > 6 ? teal : accent);
+        ctx.fillStyle = node.group.color;
         ctx.fill();
         if (isHover) {
           ctx.globalAlpha = 1;
@@ -2351,7 +2449,7 @@
           ctx.lineWidth = 1.4;
           ctx.stroke();
           ctx.globalAlpha = 0.28;
-          ctx.strokeStyle = accent;
+          ctx.strokeStyle = node.group.color;
           ctx.lineWidth = 5;
           ctx.beginPath();
           ctx.arc(item.x, item.y, r + 4, 0, Math.PI * 2);
@@ -2369,8 +2467,8 @@
       ctx.globalAlpha = 1;
 
       const labelCandidates = items.slice().sort((a, b) => {
-        const aActive = hover === a.node || (dragging && dragging.node === a.node);
-        const bActive = hover === b.node || (dragging && dragging.node === b.node);
+        const aActive = focusNode === a.node || (dragging && dragging.node === a.node);
+        const bActive = focusNode === b.node || (dragging && dragging.node === b.node);
         if (aActive !== bActive) return aActive ? -1 : 1;
         const byDegree = b.node.degree - a.node.degree;
         if (byDegree) return byDegree;
@@ -2384,9 +2482,9 @@
       for (const item of labelCandidates) {
         if (labelCount >= 600) break;
         const node = item.node;
-        const active = hover === node || Boolean(dragging && dragging.node === node);
+        const active = focusNode === node || Boolean(dragging && dragging.node === node);
         const zoomScale = is3d ? item.scale : transform.k;
-        if (!active && zoomScale < 0.22) continue;
+        if (!active && (zoomScale < 0.22 || !isRelevant(node))) continue;
         if (item.x < -60 || item.x > width + 60 || item.y < -30 || item.y > height + 30) continue;
         const label = node.label.length > 34 ? node.label.slice(0, 31) + "…" : node.label;
         const r = nodeRadius(node, item, active);
@@ -2422,7 +2520,7 @@
         ctx.fillStyle = panelSolid;
         ctx.fill();
         ctx.globalAlpha = active ? 1 : 0.9;
-        ctx.strokeStyle = active ? accent : line;
+        ctx.strokeStyle = active ? node.group.color : "#465071";
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.globalAlpha = 1;
@@ -2451,14 +2549,15 @@
         viewButton.setAttribute("aria-label", is3d ? "Cambiar a vista 2D" : "Cambiar a vista 3D");
       }
       if (spinButton) {
-        spinButton.disabled = !is3d;
+        spinButton.disabled = !is3d || reduce;
+        spinButton.title = reduce ? "Órbita desactivada por la preferencia de movimiento reducido" : "Girar la vista 3D automáticamente (O)";
         spinButton.setAttribute("aria-pressed", String(is3d && autoSpin));
       }
       if (modeLabel) modeLabel.textContent = is3d ? "3D" : "2D";
       if (hintLabel) {
         hintLabel.textContent = is3d
-          ? "Fondo: girar · Shift: mover · rueda: acercar y ver nombres"
-          : "Arrastra un nodo · rueda para acercar y ver nombres";
+          ? "Fondo: girar · Shift: mover · rueda: acercar"
+          : "Arrastra un planeta · rueda para acercar";
       }
       canvas.setAttribute("aria-label", is3d
         ? "Grafo interactivo en 3D. Arrastra un nodo para moverlo y ver cómo lo siguen sus conexiones. Arrastra el fondo para girar la cámara, usa las flechas para orbitar, más y menos para acercar, y V para volver a la vista 2D."
@@ -2485,7 +2584,7 @@
     };
 
     const toggleSpin = () => {
-      if (viewMode !== "3d") return;
+      if (viewMode !== "3d" || reduce) return;
       autoSpin = !autoSpin;
       if (autoSpin) alpha = Math.max(alpha, 0.2);
       syncModeUi();
@@ -2517,6 +2616,11 @@
       if (!lastFrame) lastFrame = now;
       const delta = Math.min(80, Math.max(0, now - lastFrame));
       lastFrame = now;
+      if (!visible) {
+        accumulator = 0;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       const active = alpha > 0.004 || dragging || panning || orbiting || (viewMode === "3d" && autoSpin);
       if (active) {
         if (viewMode === "3d" && autoSpin && !dragging) {
@@ -2537,6 +2641,11 @@
         draw();
       } else {
         accumulator = 0;
+        // Limita los repintados de estrellas a 20 fps; no anima con movimiento reducido.
+        if (atmosphere && !reduce && nodes.length <= 350 && now - lastDecorFrame >= 50) {
+          lastDecorFrame = now;
+          draw();
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -2579,7 +2688,7 @@
       const tip = $("#graphTip");
       if (!tip) return;
       tip.hidden = false;
-      tip.textContent = `${node.label} · ${node.degree} ${node.degree === 1 ? "enlace" : "enlaces"}`;
+      tip.textContent = `${node.label} · ${node.group.name} · ${node.degree} ${node.degree === 1 ? "enlace" : "enlaces"}`;
       tip.style.left = event.clientX + 12 + "px";
       tip.style.top = event.clientY - 28 + "px";
     };
@@ -2706,6 +2815,22 @@
       draw();
     };
 
+    const focusSearch = () => {
+      const query = normalize(graphSearch.value.trim());
+      selectedNode = query ? nodes.find((node) => normalize(node.label).includes(query) || normalize(node.id).includes(query)) || null : null;
+      graphSearch.setCustomValidity("");
+      graphSearch.setAttribute("aria-label", selectedNode
+        ? `Encontrar nota en el grafo. Encontrada: ${selectedNode.label}`
+        : "Encontrar nota en el grafo");
+      if (selectedNode) {
+        const point = projectNode(selectedNode);
+        transform.k = Math.max(transform.k, 0.85);
+        transform.x = -point.x * transform.k;
+        transform.y = -point.y * transform.k;
+      }
+      draw();
+    };
+
     const onPointerUp = (event) => {
       const wasDragging = dragging && dragging.pointerId === event.pointerId;
       pointers.delete(event.pointerId);
@@ -2818,9 +2943,36 @@
     add(canvas, "pointerleave", onPointerLeave);
     add(canvas, "wheel", onWheel, { passive: false });
     add(canvas, "keydown", onKeyDown);
+    add(graphSearch, "input", focusSearch);
+    add(graphSearch, "keydown", (event) => {
+      if (event.key === "Enter" && selectedNode) {
+        event.preventDefault();
+        openNote(selectedNode.id);
+      } else if (event.key === "Escape") {
+        graphSearch.value = "";
+        focusSearch();
+        canvas.focus({ preventScroll: true });
+      }
+    });
+
+    $$("[data-graph-folder]", view).forEach((button) => {
+      add(button, "click", () => {
+        const group = groups.find((item) => item.name === button.dataset.graphFolder);
+        selectedGroup = selectedGroup === group ? null : group;
+        $$("[data-graph-folder]", view).forEach((item) => {
+          item.setAttribute("aria-pressed", String(Boolean(selectedGroup && item.dataset.graphFolder === selectedGroup.name)));
+        });
+        draw();
+      });
+    });
 
     const onResize = () => { resize(); draw(); };
     add(window, "resize", onResize);
+    add(document, "visibilitychange", () => {
+      visible = !document.hidden;
+      lastFrame = 0;
+      if (visible) draw();
+    });
 
     $$("[data-graph]").forEach((button) => {
       add(button, "click", () => {
@@ -2829,6 +2981,11 @@
         else if (action === "random") openRandomNote();
         else if (action === "view") setMode();
         else if (action === "spin") toggleSpin();
+        else if (action === "atmosphere") {
+          atmosphere = !atmosphere;
+          atmosphereButton.setAttribute("aria-pressed", String(atmosphere));
+          draw();
+        }
       });
     });
 
@@ -2854,6 +3011,7 @@
     state.graph = {
       nodes,
       edges,
+      groups,
       cleanup,
       redraw: draw,
       setMode,
