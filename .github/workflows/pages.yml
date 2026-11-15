@@ -15,10 +15,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    outputs:
+      artifact-name: ${{ steps.bundle.outputs.name }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,9 +34,23 @@ jobs:
           cp index.html app.js core.js writing.js theme.js styles.css sw.js manifest.webmanifest favicon.svg _site/
           cp -R icons vendor demo _site/
           touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
+      - id: bundle
+        name: Identificar paquete de este intento
+        run: echo "name=github-pages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+          name: ${{ steps.bundle.outputs.name }}
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v5
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact-name }}
