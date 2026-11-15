@@ -4,6 +4,9 @@ Aplicación local para explorar y editar una bóveda de Obsidian desde el navega
 
 El **Universo de notas** ofrece grafo 2D/3D, constelaciones por carpeta y efectos espaciales opcionales.
 
+El editor incluye sugerencias locales de enlaces, mapa de secciones, preguntas
+pendientes, comparación de cambios externos e historial recuperable de borradores.
+
 **Versión web:** <https://angixs-zz.github.io/Obsidian2.0/>. La página descarga la interfaz desde GitHub Pages, pero la bóveda no se publica: el navegador accede a tu carpeta local solo cuando le das permiso. La versión local sigue disponible sin GitHub.
 
 ## Ejecutar

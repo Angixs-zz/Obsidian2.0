@@ -4,8 +4,9 @@
   "use strict";
 
   const Core = window.ObsidianCore;
-  if (!Core) {
-    document.body.textContent = "Falta core.js. Abre la aplicación con el servidor local.";
+  const Writing = window.ObsidianWriting;
+  if (!Core || !Writing) {
+    document.body.textContent = "Falta un módulo de la aplicación (core.js o writing.js). Recarga la página para actualizarla.";
     return;
   }
 
@@ -1306,6 +1307,7 @@
   }
 
   function confirmDiscard() {
+    if (state.saving) { toast("Espera a que termine el guardado.", "warn"); return false; }
     if (!(state.editing && state.dirty)) return true;
     return window.confirm("Hay cambios sin guardar en esta nota. ¿Descartarlos?");
   }
@@ -1382,6 +1384,178 @@
   }
 
   /* ---------------------------------- nota --------------------------------- */
+
+  const drafts = Writing.draftStore({
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value)
+  });
+
+  function rememberDraft(path, text, checkpoint = false) {
+    const result = drafts.capture(state.vaultId, path, text, { checkpoint });
+    const label = $("#draftStatus");
+    if (label) {
+      label.textContent = result.ok ? "Copia local del borrador actualizada · no guarda en el archivo" : result.reason;
+      label.classList.toggle("draft-error", !result.ok);
+    }
+    return result;
+  }
+
+  function writingDialog(title, content, setup) {
+    const previousFocus = document.activeElement;
+    const dialog = document.createElement("dialog");
+    dialog.className = "writing-dialog";
+    dialog.setAttribute("aria-labelledby", "writingDialogTitle");
+    dialog.innerHTML = `<h2 id="writingDialogTitle">${escapeHtml(title)}</h2>${content}`;
+    document.body.appendChild(dialog);
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      dialog.close();
+      dialog.remove();
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+    // El Escape del diálogo no debe descartar la nota en el listener global.
+    dialog.addEventListener("keydown", (event) => event.stopPropagation());
+    dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+    setup(dialog, close);
+    dialog.showModal();
+    return dialog;
+  }
+
+  function showDraftHistory(path, editor) {
+    const versions = drafts.list(state.vaultId, path);
+    writingDialog("Historial local de borradores", `
+      <p>Recuperar reemplaza el texto del editor, no el archivo. Guarda después para escribir en disco.
+      Hasta 10 versiones por nota; las copias antiguas se eliminan al alcanzar el límite local.</p>
+      <label>Versión <select id="draftVersion">${versions.map((version, index) =>
+        `<option value="${index}">${escapeHtml(new Date(version.at).toLocaleString())} · ${version.text.length} caracteres</option>`).join("")}</select></label>
+      <label>Vista previa<textarea id="draftText" readonly></textarea></label>
+      <div class="writing-dialog-actions"><button id="recoverDraft"${versions.length ? "" : " disabled"}>Recuperar en el editor</button>
+      <button id="clearDrafts"${versions.length ? "" : " disabled"}>Borrar este historial</button><button id="closeDrafts">Cerrar</button></div>`,
+    (dialog, close) => {
+      const select = $("#draftVersion", dialog), preview = $("#draftText", dialog);
+      const update = () => { preview.value = versions[Number(select.value)]?.text ?? ""; };
+      select.addEventListener("change", update);
+      update();
+      $("#recoverDraft", dialog).onclick = () => {
+        const version = versions[Number(select.value)];
+        if (!version || !editor.isConnected) return;
+        // Conservar el texto que estamos a punto de reemplazar.
+        const backup = rememberDraft(path, editor.value, true);
+        if (!backup.ok && !window.confirm("No se pudo respaldar el texto actual. ¿Reemplazarlo de todos modos?")) return;
+        editor.value = version.text;
+        rememberDraft(path, editor.value, true);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        close();
+        editor.focus();
+      };
+      $("#clearDrafts", dialog).onclick = () => {
+        if (!window.confirm("¿Borrar las copias locales de esta nota? El archivo y el texto del editor no se modifican.")) return;
+        try {
+          drafts.clear(state.vaultId, path);
+          $("#draftStatus").textContent = "Historial borrado. Se creará otra copia cuando escribas.";
+          close();
+        } catch { toast("No se pudo borrar el historial.", "error"); }
+      };
+      $("#closeDrafts", dialog).onclick = close;
+    });
+  }
+
+  function compareVersions(path, draft, disk) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const dialog = writingDialog(`Cambios externos: ${basename(path)}`, `
+        <p>Compara ambas versiones. Puedes combinar cambios en «Texto a guardar». No se escribirá nada hasta que lo confirmes.
+      Las líneas exclusivas de cada versión se muestran debajo; revisa también el orden en los paneles completos.</p>
+        <div class="writing-compare">
+          <section><label>Tu borrador<textarea id="compareDraft" readonly></textarea></label><pre id="draftChanges"></pre></section>
+          <section><label>Archivo actual en disco<textarea id="compareDisk" readonly></textarea></label><pre id="diskChanges"></pre></section>
+        </div>
+        <label>Texto a guardar (editable)<textarea id="mergedText"></textarea></label>
+        <div class="writing-dialog-actions"><button id="saveMerged">Guardar texto combinado</button>
+        <button id="useDisk">Llevar versión del disco al editor</button><button id="cancelMerge">Seguir editando sin guardar</button></div>`,
+      (element, close) => {
+        $("#compareDraft", element).value = draft;
+        $("#compareDisk", element).value = disk;
+        $("#mergedText", element).value = draft;
+        const delta = (a, b) => {
+          const other = new Set(b.split("\n"));
+          return a.split("\n").map((line, i) => other.has(line) ? null : `${i + 1}: ${line}`).filter(Boolean).slice(0, 80).join("\n")
+            || "Sin líneas de texto exclusivas (puede haber cambios de orden o repetición).";
+        };
+        $("#draftChanges", element).textContent = delta(draft, disk);
+        $("#diskChanges", element).textContent = delta(disk, draft);
+        const finish = (value) => { settled = true; resolve(value); close(); };
+        $("#saveMerged", element).onclick = () => finish({ action: "save", text: $("#mergedText", element).value });
+        $("#useDisk", element).onclick = () => finish({ action: "load", text: disk });
+        $("#cancelMerge", element).onclick = () => finish(null);
+      });
+      dialog.addEventListener("close", () => { if (!settled) resolve(null); }, { once: true });
+    });
+  }
+
+  function bindWritingTools(note, editor) {
+    let offered = [];
+    const panel = $("#writingAssist");
+    const vaultId = state.vaultId;
+    const render = () => {
+      if (!editor.isConnected || state.currentPath !== note.path || state.vaultId !== vaultId) return;
+      const model = Writing.analyze(editor.value);
+      offered = Writing.suggestions(editor.value, note.path, state.notes.values(), resolveLink);
+      const jumps = (items) => items.slice(0, 80).map((item) =>
+        `<button type="button" data-writing-offset="${item.offset}" style="--section-level:${item.level || 1}">${escapeHtml(item.text)}</button>`).join("");
+      $("#writingMap", panel).innerHTML = `<div class="idea-root">${escapeHtml(note.title)}</div><div class="idea-branches">${jumps(model.sections) || "<p>Usa # y ## para dar estructura a tus ideas.</p>"}</div>
+        <p>${model.pending.length} preguntas o pendientes · ${model.links.length} enlaces</p>
+        <div class="idea-links">${model.links.slice(0, 20).map((link) => `<span>${escapeHtml(link)}</span>`).join("")}</div>`;
+      $("#writingPending", panel).innerHTML = jumps(model.pending) || "<p>No hay preguntas ni tareas pendientes detectadas.</p>";
+      $("#writingSuggestions", panel).innerHTML = offered.map((item, index) =>
+        `<button type="button" data-writing-link="${index}"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.path)} · ${escapeHtml(item.reason)}</small></button>`).join("")
+        || "<p>Escribe sobre otra nota para encontrar conexiones. Se excluyen los enlaces ya insertados.</p>";
+    };
+    const update = debounce(render, 400);
+    editor.addEventListener("input", () => {
+      rememberDraft(note.path, editor.value);
+      update();
+    });
+    panel.addEventListener("click", (event) => {
+      const jump = event.target.closest("[data-writing-offset]");
+      if (jump) {
+        editor.focus();
+        const start = Number(jump.dataset.writingOffset);
+        const end = editor.value.indexOf("\n", start);
+        editor.setSelectionRange(start, end < 0 ? editor.value.length : end);
+        editor.scrollTop = editor.value.slice(0, start).split("\n").length * parseFloat(getComputedStyle(editor).lineHeight) - editor.clientHeight / 2;
+      }
+      const link = event.target.closest("[data-writing-link]");
+      if (link) {
+        const item = offered[Number(link.dataset.writingLink)];
+        if (!item) return;
+        // Ruta completa evita ambigüedad entre archivos con el mismo nombre.
+        const target = item.path.replace(/\.(md|markdown|txt)$/i, "");
+        const insertion = /[\[\]|#]/.test(target)
+          ? `[${item.title.replace(/[[\]\\]/g, "\\$&")}](${encodeURI(item.path).replace(/[()#]/g, (c) => "%" + c.charCodeAt(0).toString(16))})`
+          : `[[${target}]]`;
+        editor.setRangeText(insertion, editor.selectionStart, editor.selectionEnd, "end");
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        editor.focus();
+      }
+    });
+    $("#draftHistory").onclick = () => showDraftHistory(note.path, editor);
+    const previous = drafts.list(vaultId, note.path);
+    $("#draftStatus").textContent = previous.length && previous[0].text !== editor.value
+      ? "Hay un borrador anterior distinto. Puedes recuperarlo desde Historial."
+      : "Se conservará una copia local al escribir; el archivo solo cambia al guardar.";
+    if (!previous.length) rememberDraft(note.path, editor.value, true);
+    else {
+      const result = drafts.capture(vaultId, note.path, previous[0].text, { checkpoint: true });
+      if (!result.ok) {
+        $("#draftStatus").textContent = result.reason;
+        $("#draftStatus").classList.add("draft-error");
+      }
+    }
+    render();
+  }
 
   function openNote(path, options = {}) {
     if (!state.notes.has(path)) {
@@ -1464,19 +1638,27 @@
             <button class="primary" data-edit-save>${icon("check")} Guardar cambios</button>
             <button data-edit-cancel>Cancelar</button>
             <button data-edit-preview class="${state.preview ? "on" : ""}">${icon("panel")} Vista previa</button>
+            <button id="draftHistory" type="button">Historial de borradores</button>
             <span class="spacer"></span>
             <span id="editorState">${state.dirty ? "Sin guardar" : "Sin cambios"}</span>
           </div>
+          <p id="draftStatus" class="draft-status" role="status"></p>
           <div class="editor-panes${state.preview ? " split" : ""}">
             <textarea id="noteEditor" spellcheck="true" aria-label="Editor de ${escapeHtml(note.title)}">${escapeHtml(draft)}</textarea>
             <div id="editorPreview" class="markdown-body" ${state.preview ? "" : "hidden"}></div>
           </div>
+          <div id="writingAssist" class="writing-assist">
+            <details open><summary>Mapa de ideas</summary><div id="writingMap"></div></details>
+            <details open><summary>Preguntas pendientes</summary><div id="writingPending"></div></details>
+            <details open><summary>Enlaces sugeridos · local</summary><div id="writingSuggestions"></div></details>
+          </div>
         </div>
       </div>`;
       const editor = $("#noteEditor");
+      editor.dataset.path = path;
       const preview = $("#editorPreview");
       const refreshPreview = debounce(() => {
-        if (!state.preview || !preview) return;
+        if (!editor.isConnected || !state.preview || !preview) return;
         const draftNote = parseNote(note.path, editor.value, note.mtime);
         preview.innerHTML = renderMarkdown(draftNote.body, draftNote);
       }, 220);
@@ -1499,6 +1681,7 @@
         preview.innerHTML = renderMarkdown(draftNote.body, draftNote);
       }
       renderInspector(note, backlinks);
+      bindWritingTools(note, editor);
       return;
     }
 
@@ -1630,7 +1813,9 @@
       toast("No se guarda: la nota no se leyó completa. Edítala en Obsidian.", "error");
       return;
     }
-    const content = editor.value;
+    let content = editor.value;
+    const submitted = content;
+    rememberDraft(path, content, true);
     const record = state.files.get(path);
     if (state.mode === "fs" && record && record.handle) {
       state.saving = true;
@@ -1642,25 +1827,46 @@
           if (permission !== "granted") permission = await record.handle.requestPermission({ mode: "readwrite" });
           if (permission !== "granted") return { error: "permiso" };
           const before = await record.handle.getFile();
-          const known = state.notes.get(path);
-          if (known && known.mtime && before.lastModified
-            && Math.abs(before.lastModified - known.mtime) > 1500) {
-            const overwrite = window.confirm("La nota cambió en el disco desde que la abriste (por ejemplo, en Obsidian).\n\nAceptar = sobrescribir con tu versión.\nCancelar = cargar la versión del disco.");
-            if (!overwrite) return { reload: true };
+          const disk = await before.text();
+          if (disk !== knownNote.raw) {
+            const choice = await compareVersions(path, content, disk);
+            if (!choice) return { cancelled: true };
+            if (choice.action === "load") return { load: disk, mtime: before.lastModified };
+            content = choice.text;
+            rememberDraft(path, content, true);
+            // No pisar una tercera versión aparecida mientras se comparaba.
+            if (await (await record.handle.getFile()).text() !== disk) return { changedAgain: true };
           }
           const writable = await record.handle.createWritable();
-          await writable.write(content);
-          await writable.close();
+          try {
+            await writable.write(content);
+            await writable.close();
+          } catch (error) {
+            await writable.abort?.().catch(() => {});
+            throw error;
+          }
           const file = await record.handle.getFile();
           return { mtime: file.lastModified || Date.now(), size: file.size };
         });
-        if (outcome.reload) {
-          const file = await record.handle.getFile();
-          const text = await file.text();
-          replaceNote(path, text, file.lastModified);
+        if (outcome.cancelled || outcome.changedAgain) {
+          if (stateLabel) stateLabel.textContent = "Sin guardar";
+          if (outcome.changedAgain) {
+            // Conservar también la combinación manual para volver a compararla.
+            if (editor.value === submitted) {
+              editor.value = content;
+              editor.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            toast("El archivo volvió a cambiar. Conservamos tu borrador; pulsa Guardar para comparar otra vez.", "warn");
+          }
+          return;
+        }
+        if (typeof outcome.load === "string") {
+          rememberDraft(path, editor.value, true);
+          replaceNote(path, outcome.load, outcome.mtime);
+          editor.value = outcome.load;
           state.dirty = false;
           renderNoteView(path);
-          toast("Se cargó la versión más reciente del disco.");
+          toast("Versión del disco en el editor. Tu borrador anterior queda en Historial.");
           return;
         }
         if (outcome.error) {
@@ -1669,8 +1875,13 @@
           return;
         }
         replaceNote(path, content, outcome.mtime);
-        state.dirty = false;
-        if (stateLabel) stateLabel.textContent = "Guardado";
+        state.externalChange = false;
+        // Si se siguió escribiendo durante la operación, ese texto sigue pendiente.
+        if (editor.value === submitted) editor.value = content;
+        state.dirty = editor.value !== content;
+        if (stateLabel) stateLabel.textContent = state.dirty ? "Hay cambios posteriores sin guardar" : "Guardado";
+        rememberDraft(path, editor.value, true);
+        if (!state.dirty) renderNoteView(path);
         renderTree();
         toast("Nota guardada en el disco.");
       } catch (error) {
@@ -1725,6 +1936,7 @@
   }
 
   async function reloadNoteFromDisk() {
+    if (state.saving) return;
     const path = state.currentPath;
     const record = state.files.get(path);
     if (!path || !record || !record.handle) return;
@@ -1744,6 +1956,7 @@
   }
 
   async function reloadVault() {
+    if (state.saving) return;
     if (!capabilities().reload) { toast("Recargar solo está disponible al abrir una carpeta real.", "error"); return; }
     if (!state.rootHandle) { toast("Vuelve a abrir la carpeta para recargar."); return; }
     if (state.editing && state.dirty && !window.confirm("Hay cambios sin guardar. ¿Recargar de todos modos?")) return;
@@ -3358,6 +3571,7 @@
     if (editAction) {
       if (editAction.hasAttribute("data-edit-save")) saveCurrentNote();
       if (editAction.hasAttribute("data-edit-cancel")) {
+        if (state.saving) { toast("Espera a que termine el guardado.", "warn"); return; }
         if (!state.dirty || window.confirm("¿Descartar los cambios sin guardar?")) {
           state.editing = false;
           state.dirty = false;
@@ -3448,6 +3662,7 @@
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
     if (event.key === "Escape") {
+      if (state.saving) return;
       if (closeViewer()) return;
       if (!$("#palette").hidden) { closePalette(); return; }
       if (state.editing) {

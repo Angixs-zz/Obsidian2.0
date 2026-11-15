@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.3.0 — 2026-11-15
+
+### Cinco ayudas locales para escribir
+- Enlaces sugeridos por menciones de títulos, alias y palabras compartidas; inserción
+  de rutas completas y exclusión de enlaces existentes, código y comentarios.
+- Mapa de secciones y enlaces del borrador, con navegación a la línea original.
+- Preguntas, tareas sin completar y marcadores «investigar», «revisar», «pendiente»
+  y «TODO» reunidos mientras escribes.
+- Comparador de borrador y archivo actual antes de guardar cambios en conflicto,
+  con combinación manual editable y comprobación adicional antes de escribir.
+- Historial local recuperable tras recargar: último texto actualizado al escribir,
+  hasta 10 versiones por nota, con vista previa, recuperación y borrado explícitos.
+- Los cambios escritos durante un guardado permanecen pendientes; se bloquea la
+  navegación durante la escritura para no mezclar notas.
+
 ## Publicación web
 
 - GitHub Pages publica únicamente la app y la demo desde `feat/universo-grafo`;

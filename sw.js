@@ -1,12 +1,13 @@
 /* Service worker de Obsidian Web.
    Cachea solo la aplicación (HTML, CSS, JS, iconos y demo). La bóveda del
    usuario nunca pasa por aquí: se lee con la File System Access API. */
-const CACHE = "obsidian-web-v2.2.0-r2";
+const CACHE = "obsidian-web-v2.3.0-r1";
 const SHELL = [
   "./",
   "./index.html",
   "./app.js",
   "./core.js",
+  "./writing.js",
   "./theme.js",
   "./styles.css",
   "./favicon.svg",

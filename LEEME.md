@@ -98,6 +98,35 @@ La última carpeta se recuerda en este navegador. Si el permiso caduca, pulsa
 - **Enlaces directos** a notas, etiquetas, carpetas y búsquedas mediante el hash de la URL.
 - **PWA instalable** con service worker para la interfaz de la aplicación.
 
+## Ayudas al escribir (versión 2.3)
+
+Al pulsar **Editar** aparecen debajo del editor tres paneles:
+
+- **Mapa de ideas**: estructura de encabezados y enlaces del borrador. Pulsa una
+  sección para seleccionarla en el editor.
+- **Preguntas pendientes**: reúne preguntas, casillas sin completar y expresiones
+  como «investigar», «revisar», «pendiente» o «TODO». Ignora código, comentarios y
+  tareas marcadas como hechas. Es una detección por reglas, no interpretación por IA.
+- **Enlaces sugeridos**: encuentra menciones de títulos y alias, o coincidencias de
+  palabras en los nombres de otras notas. Pulsar una sugerencia inserta el enlace
+  en el cursor (o reemplaza la selección). No envía texto fuera del navegador.
+
+**Historial de borradores** permite previsualizar y recuperar copias locales.
+Recuperar modifica el editor, nunca el archivo hasta que pulses **Guardar**.
+El último texto se copia al escribir; se conservan versiones aproximadamente cada
+30 segundos y en operaciones como guardar o recuperar. Límite: 10 versiones por
+nota, 30 notas y 1,5 millones de caracteres serializados en total; textos de más de
+200.000 caracteres no se respaldan. El indicador avisa si falta espacio o el navegador
+bloquea el almacenamiento. Puedes borrar el historial de una nota desde ese diálogo.
+Estas copias no son una copia de seguridad permanente y pueden desaparecer al borrar
+los datos del sitio. No se sincronizan entre navegadores o entre Pages y localhost.
+
+Si el archivo cambió externamente, **Guardar** abre un comparador de ambas versiones.
+Puedes combinar manualmente el texto, cargar la versión del disco en el editor o
+cancelar. Una segunda comprobación evita escribir si el archivo cambió otra vez
+mientras comparabas. El navegador no proporciona una transacción conjunta con
+otros editores: evita editar y guardar simultáneamente el mismo archivo desde dos apps.
+
 ## Atajos
 
 | Atajo | Acción |
@@ -138,7 +167,7 @@ Comprobación de salud:
 
 ```bash
 curl http://127.0.0.1:8765/health
-# {"app": "obsidian-web", "version": "2.2.0", "status": "ok"}
+# {"app": "obsidian-web", "version": "2.3.0", "status": "ok"}
 ```
 
 El servidor sirve **solo** los archivos de esta carpeta mediante una lista blanca.
@@ -150,8 +179,8 @@ En Chrome, Edge o Brave, abre la app desde `http://127.0.0.1:8765/` y usa
 **Instalar Obsidian Web** en el menú del navegador. La interfaz queda cacheada por el
 service worker; la bóveda se sigue leyendo con la API de archivos del navegador.
 
-La app no ofrece HTTPS. No la publiques en una red, no la pongas detrás de un proxy
-y no abras el puerto a internet: está pensada para tu equipo.
+El servidor Python solo ofrece HTTP local en `127.0.0.1`. La interfaz publicada
+en GitHub Pages sí se entrega por HTTPS y también admite la instalación como PWA.
 
 ## Privacidad y datos
 
@@ -161,6 +190,8 @@ y no abras el puerto a internet: está pensada para tu equipo.
   se envía por red.
 - En `localStorage` (`obsidian-web-local-v1`) se guardan tema, favoritos, recientes,
   última nota por bóveda y preferencias de interfaz.
+- `obsidian-web-drafts-v1` conserva el texto de borradores e historial local con
+  los límites descritos arriba. Su contenido permanece en este navegador.
 - En `IndexedDB` (`obsidian-web`) se guardan el permiso de la última carpeta, la
   identidad de cada bóveda y una caché del índice para reabrir más rápido. Esa caché
   puede incluir el texto analizado de notas pequeñas (hasta 200 KB) y no sale del
@@ -202,6 +233,11 @@ Requiere Node.js 20 o posterior solo para las pruebas.
 npm test        # pruebas de core.js (frontmatter, etiquetas, búsqueda, enlaces)
 npm run check   # sintaxis de JS y compilación de servidor.py
 ```
+
+Para la integración del editor, usa un perfil de Chrome de pruebas con depuración
+remota en `9222` y Node.js 22+: `node tests/writing-browser.cjs`. Usa archivos OPFS
+aislados del navegador para verificar recuperación, conflictos y guardado sin tocar
+la bóveda. `BASE` permite probar otra URL, incluida la versión de Pages.
 
 También hay un flujo de CI en `.github/workflows/ci.yml` y un registro de cambios en
 `CHANGELOG.md`.

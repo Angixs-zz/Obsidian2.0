@@ -26,12 +26,13 @@ jobs:
         run: |
           node --check app.js
           node --check core.js
+          node --check writing.js
           node --check sw.js
           node --test tests/*.test.js
       - name: Empaquetar solo archivos públicos de la app
         run: |
           mkdir -p _site
-          cp index.html app.js core.js theme.js styles.css sw.js manifest.webmanifest favicon.svg _site/
+          cp index.html app.js core.js writing.js theme.js styles.css sw.js manifest.webmanifest favicon.svg _site/
           cp -R icons vendor demo _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5

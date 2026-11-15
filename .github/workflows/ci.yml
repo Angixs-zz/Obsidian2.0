@@ -18,6 +18,7 @@ jobs:
       - name: Comprobar sintaxis
         run: |
           node --check core.js
+          node --check writing.js
           node --check theme.js
           node --check app.js
           node --check sw.js
