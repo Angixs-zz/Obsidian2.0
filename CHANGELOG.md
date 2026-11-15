@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.1 — 2026-11-15
+
+- Aviso «Sin escritura en la carpeta» en la barra lateral cuando el navegador abre
+  la bóveda sin permiso de escritura, con instrucciones concretas para Brave y para
+  el resto de navegadores.
+- El botón Nueva nota y el de carpeta explican el motivo real en lugar de pedir abrir
+  una carpeta que ya está abierta. Brave requiere `brave://flags/#file-system-access-api`.
+
 ## 2.3.0 — 2026-11-15
 
 ### Cinco ayudas locales para escribir

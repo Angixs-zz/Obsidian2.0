@@ -291,13 +291,25 @@
     };
   }
 
+  // Brave bloquea la API de archivos por defecto; Firefox y Safari no la ofrecen.
+  function writeSupportHint() {
+    if (navigator.brave) return "Brave bloquea la escritura en carpetas. Activa brave://flags/#file-system-access-api, reinicia Brave y vuelve a abrir la carpeta, o usa Chrome o Edge.";
+    return "Este navegador no permite escribir en carpetas locales. Usa Chrome o Edge para guardar directamente en tus archivos.";
+  }
+
   function syncModeUi() {
     const caps = capabilities();
+    const readOnly = state.mode === "files";
     document.body.dataset.mode = state.mode || "none";
     const create = $("#newNote");
     if (create) {
       create.disabled = !caps.create;
-      create.title = caps.create ? "Nueva nota" : "Crear notas requiere abrir una carpeta en Chrome o Edge";
+      create.title = caps.create ? "Nueva nota" : (readOnly ? "No se pueden crear notas sin escritura en la carpeta. " + writeSupportHint() : "Crear notas requiere abrir una carpeta");
+    }
+    const notice = $("#writeNotice");
+    if (notice) {
+      notice.hidden = !readOnly;
+      notice.innerHTML = readOnly ? `<strong>Sin escritura en la carpeta</strong><span>Puedes leer y editar, pero Guardar descarga una copia en lugar de actualizar el archivo, y no se pueden crear notas. ${escapeHtml(writeSupportHint())}</span>` : "";
     }
     const reload = $("#reloadVault");
     if (reload) {
@@ -306,8 +318,8 @@
     }
     const badge = $("#modeBadge");
     if (badge) {
-      badge.hidden = !caps.demo;
-      badge.textContent = caps.demo ? "Demostración · solo lectura" : "";
+      badge.hidden = !(caps.demo || readOnly);
+      badge.textContent = caps.demo ? "Demostración · solo lectura" : (readOnly ? "Sin escritura" : "");
     }
   }
 
@@ -1694,7 +1706,7 @@
           <h1>${escapeHtml(note.title)}</h1>
           <div class="note-actions">
             <button data-action="favorite" class="chip-button${isFavorite ? " on" : ""}" aria-pressed="${isFavorite}">${icon("star")} ${isFavorite ? "En favoritos" : "Favorito"}</button>
-            <button data-action="edit" class="primary-action"${canEdit ? "" : " disabled"} title="${canEdit ? "Editar la nota" : (caps.edit ? "Esta nota no se pudo leer completa; edítala en Obsidian" : "Editar requiere abrir una carpeta en Chrome o Edge")}">${icon("edit")} Editar</button>
+            <button data-action="edit" class="primary-action"${canEdit ? "" : " disabled"} title="${canEdit ? "Editar la nota" : (caps.edit ? "Esta nota no se pudo leer completa; edítala en Obsidian" : writeSupportHint())}">${icon("edit")} Editar</button>
             ${noteMenu(note)}
           </div>
         </div>
@@ -3802,7 +3814,7 @@
     if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
       navigator.serviceWorker.register("sw.js").catch(() => {});
     }
-    window.__obsidianWeb = { state, openNote, setView, openDirectoryPicker, openDemo, reloadVault };
+    window.__obsidianWeb = { state, openNote, setView, openDirectoryPicker, openDemo, reloadVault, syncModeUi };
   }
 
   init();

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-web",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "private": true,
   "description": "Lector y editor local de una bóveda de Obsidian, sin servidores remotos.",
   "license": "MIT",

@@ -181,6 +181,8 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     await click("#draftHistory");
     await check("Historial accesible en móvil sin desbordamiento", "document.querySelector('dialog').getBoundingClientRect().right <= innerWidth && document.querySelector('dialog').getBoundingClientRect().left >= 0");
     await click("#closeDrafts");
+    await evaluate("__obsidianWeb.syncModeUi()");
+    await check("Sin aviso de solo lectura cuando hay escritura", "document.querySelector('#writeNotice').hidden && document.querySelector('#modeBadge').hidden && !document.querySelector('#newNote').disabled");
     // No tocar archivos locales del usuario: solo limpiar el sandbox de esta prueba.
     await evaluate("(async()=>{ __obsidianWeb.state.dirty=false; ObsidianWriting.draftStore(localStorage).clear('writing-test','Prueba.md'); const r=await navigator.storage.getDirectory(); await r.removeEntry('ow-writing-test',{recursive:true}); })()");
     await evaluate("__obsidianWeb.openDemo()");

@@ -11,7 +11,8 @@ es el navegador quien lee y escribe los archivos con permiso explícito.
 ## Requisitos
 
 - **Python 3.10 o posterior** para el servidor local.
-- **Chrome, Edge, Brave u otro Chromium reciente** para lectura y edición completas.
+- **Chrome o Edge** para lectura y edición completas. **Brave** lee siempre, pero
+  necesita activar `brave://flags/#file-system-access-api` para crear o editar.
   Firefox funciona en modo lectura con descarga al guardar.
 - Node.js 20 o posterior solo si quieres ejecutar las pruebas.
 
@@ -50,8 +51,9 @@ Abre `http://127.0.0.1:8765/`. El servidor solo acepta conexiones locales.
 ### GitHub Pages (opcional)
 
 La interfaz también se publica desde la rama `main` en
-<https://angixs-zz.github.io/Obsidian2.0/>. En Chrome, Edge o Brave puedes abrir
-allí una carpeta local: **las notas no se suben a GitHub**. Solo se alojan los
+<https://angixs-zz.github.io/Obsidian2.0/>. En Chrome o Edge (y en Brave con el
+flag de archivos activado) puedes abrir allí una carpeta local: **las notas no se
+suben a GitHub**. Solo se alojan los
 archivos de la aplicación y la demostración que ya está en el repositorio.
 La página necesita conexión para cargarse por primera vez y el navegador vuelve
 a pedir permiso para la carpeta: `github.io` y `127.0.0.1` son sitios distintos,
@@ -167,7 +169,7 @@ Comprobación de salud:
 
 ```bash
 curl http://127.0.0.1:8765/health
-# {"app": "obsidian-web", "version": "2.3.0", "status": "ok"}
+# {"app": "obsidian-web", "version": "2.3.1", "status": "ok"}
 ```
 
 El servidor sirve **solo** los archivos de esta carpeta mediante una lista blanca.
@@ -204,8 +206,12 @@ en GitHub Pages sí se entrega por HTTPS y también admite la instalación como 
 
 ## Navegadores
 
-- **Chrome, Edge, Brave u otro Chromium reciente:** lectura, edición, creación de
-  notas, reapertura de carpeta y “Abrir en Obsidian”.
+- **Chrome y Edge:** lectura, edición, creación de notas, reapertura de carpeta y
+  “Abrir en Obsidian”.
+- **Brave:** lectura completa. Brave bloquea la escritura en carpetas; se activa en
+  `brave://flags/#file-system-access-api` y reiniciando Brave. Sin eso, la app avisa
+  «Sin escritura en la carpeta»: Editar funciona pero Guardar descarga una copia, y
+  Nueva nota queda desactivado.
 - **Firefox:** lectura mediante el selector de archivos. Al guardar se descarga una
   copia del `.md`, porque Firefox no implementa la API de escritura de carpetas.
 - **Safari:** puede leer y editar en modo descarga según la versión; no se garantiza
@@ -246,6 +252,9 @@ También hay un flujo de CI en `.github/workflows/ci.yml` y un registro de cambi
 
 - **El botón de carpeta no hace nada:** usa Chrome o Edge y abre la app desde
   `http://127.0.0.1:8765/`, no con doble clic sobre `index.html`.
+- **No puedo editar ni crear en Brave:** ábrelo en Chrome o Edge, o activa
+  `brave://flags/#file-system-access-api`, reinicia Brave y vuelve a abrir la carpeta.
+  La app muestra un aviso «Solo lectura» mientras el navegador bloquee la escritura.
 - **El puerto está ocupado:** ejecuta
   `./"Abrir Obsidian Web.sh" --port 9000` y abre `http://127.0.0.1:9000/`.
 - **No aparecen cambios hechos en Obsidian:** pulsa ↻ en la barra superior.
