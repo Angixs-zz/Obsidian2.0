@@ -2,7 +2,7 @@ name: Publicar Pages
 
 on:
   push:
-    branches: [feat/universo-grafo]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

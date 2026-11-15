@@ -49,7 +49,7 @@ Abre `http://127.0.0.1:8765/`. El servidor solo acepta conexiones locales.
 
 ### GitHub Pages (opcional)
 
-La interfaz también se publica desde la rama `feat/universo-grafo` en
+La interfaz también se publica desde la rama `main` en
 <https://angixs-zz.github.io/Obsidian2.0/>. En Chrome, Edge o Brave puedes abrir
 allí una carpeta local: **las notas no se suben a GitHub**. Solo se alojan los
 archivos de la aplicación y la demostración que ya está en el repositorio.
